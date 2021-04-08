@@ -1,0 +1,34 @@
+version: '3.4'
+
+networks:
+  default:
+    driver: bridge
+
+services:
+  kong:
+    build: kong
+    networks:
+      - default
+    env_file:
+      - kong/.env
+    ports:
+      - "8000:8000" # Listener
+      - "8001:8001" # Admin API
+  api:
+    build: api
+    networks:
+      - default
+    ports:
+      - "5000:5000"
+
+  nginx:
+    build:
+      context: proxy
+      dockerfile: Dockerfile
+    ports:
+      - "1111:1111"
+    volumes:
+      - ./front/dist/:/etc/nginx/html/dist/
+      - ./proxy/data/nginx/:/etc/nginx/conf.d
+    networks:
+      - default

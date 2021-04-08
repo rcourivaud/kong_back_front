@@ -1,0 +1,25 @@
+build:
+	docker-compose -f docker-compose.yml build
+
+build-provision:
+	docker-compose -f docker-compose.provision.yml build
+
+setup:
+	docker-compose -f docker-compose.yml up -d kong-db
+	sleep 10
+	docker-compose -f docker-compose.yml run --rm kong kong migrations bootstrap
+	sleep 15
+	docker-compose -f docker-compose.yml up -d kong
+
+
+provision:
+	docker-compose -f docker-compose.provision.yml run --rm kong-provision
+
+up:
+	docker-compose -f docker-compose.yml up
+
+down:
+	docker-compose -f docker-compose.yml down --remove-orphans -v
+
+logs:
+	docker-compose -f docker-compose.yml logs --follow

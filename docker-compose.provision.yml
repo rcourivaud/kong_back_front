@@ -1,0 +1,18 @@
+version: '3.4'
+
+networks:
+  default:
+    driver: bridge
+  enki_default:
+    external: true
+
+services:
+  kong-provision:
+    build:
+      context: kong/docker
+      dockerfile: kong/docker/Dockerfile.provision
+    env_file:
+      - kong/.env
+    networks:
+      - default
+      - enki_default
