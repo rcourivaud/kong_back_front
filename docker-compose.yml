@@ -3,8 +3,20 @@ version: '3.4'
 networks:
   default:
     driver: bridge
+volumes:
+  kong-datastore:
 
 services:
+  kong-db:
+    image: postgres
+    volumes:
+      - kong-datastore:/var/lib/postgresql/data
+    networks:
+      - default
+    ports:
+      - "15432:5432"
+    env_file:
+      - kong/.env
   kong:
     build: kong
     networks:
@@ -14,19 +26,38 @@ services:
     ports:
       - "8000:8000" # Listener
       - "8001:8001" # Admin API
+      - "8002:8002" # Admin API
   api:
     build: api
     networks:
       - default
     ports:
       - "5000:5000"
+    volumes:
+      - ./api/:/app
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
 
+#  keycloak-db:
+#      image: postgres
+#      env_file:
+#        - authentication/.env
+#      networks:
+#        - default
+#
+#  keycloak:
+#      build: .
+#      env_file:
+#        - authentication/.env
+#      networks:
+#        - default
+#      ports:
+#      - "8080:8080"
   nginx:
     build:
       context: proxy
       dockerfile: Dockerfile
     ports:
-      - "1111:1111"
+      - "7777:7777"
     volumes:
       - ./front/dist/:/etc/nginx/html/dist/
       - ./proxy/data/nginx/:/etc/nginx/conf.d

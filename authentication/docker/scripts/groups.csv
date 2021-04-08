@@ -1,0 +1,10 @@
+name,parent,description,roles
+mairie,,,watchEvents
+maire,,,watchEvents/eventDetails
+adjoint,,,watchEvents/eventDetails
+prefecture,,,watchEvents
+prefet,,,watchEvents/eventDetails
+sdis,,,watchEvents
+codis,,,watchEvents
+coz,,,watchEvents
+

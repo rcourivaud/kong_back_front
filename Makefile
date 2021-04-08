@@ -6,11 +6,9 @@ build-provision:
 
 setup:
 	docker-compose -f docker-compose.yml up -d kong-db
+	#docker-compose -f docker-compose.yml up -d keycloak-db
 	sleep 10
 	docker-compose -f docker-compose.yml run --rm kong kong migrations bootstrap
-	sleep 15
-	docker-compose -f docker-compose.yml up -d kong
-
 
 provision:
 	docker-compose -f docker-compose.provision.yml run --rm kong-provision
