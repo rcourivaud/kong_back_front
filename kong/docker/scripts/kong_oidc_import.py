@@ -1,6 +1,6 @@
 import requests
 import os
-
+import uuid
 # from dotenv import load_dotenv
 # load_dotenv("../../.env")
 
@@ -8,58 +8,86 @@ KONG_HOST_IP = os.environ.get("KONG_HOST_IP")
 KONG_PORT = os.environ.get("KONG_PORT")
 KEYCLOAK_HOST_IP = os.environ.get("KEYCLOAK_HOST_IP")
 KEYCLOAK_PORT = os.environ.get("KEYCLOAK_PORT")
+KEYCLOAK_ADMIN_USER = os.environ.get("KEYCLOAK_ADMIN_USER")
+KEYCLOAK_ADMIN_PASSWORD = os.environ.get("KEYCLOAK_ADMIN_PASSWORD")
 IS_PROD = os.environ.get("PROD") == "true"
 
 BACKEND_URI = os.environ.get("BACKEND_URI")
 CLIENT_ID = os.environ.get("CLIENT_ID")
 CLIENT_SECRET = os.environ.get("CLIENT_SECRET")
-REALM_NAME = "enki"
-
-print(CLIENT_SECRET)
-
-ENKI_API_SERVICE_ID = os.environ.get("ENKI_API_SERVICE_ID")
-
-# Add Service for enki URL
-data = {
-    'name': ENKI_API_SERVICE_ID,
-    'url': f'{BACKEND_URI}'
-}
-print(f'http://{KONG_HOST_IP}:{KONG_PORT}/services')
-print(data)
-
-response = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services', data=data)
-
-print(response.json())
-
-created_service_id = response.json()["id"]
-
-# # Add routes path
+REALM_NAME = "master"
+KEYCLOAK_URL = f"http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/"
 
 
-data = {
-    'service.id': f'{created_service_id}',
-    'paths[]': '/enki',
-}
+services = [
+    {
+        'name': "front_service",
+        'url': f'http://nginx:7777/front',
+        'path': "front"
 
-_ = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services/{ENKI_API_SERVICE_ID}/routes', data=data)
+    },
+        {
+        'name': "api_service",
+        'url': f'http://nginx:7777/api',
+        'path': "api"
 
-# # Configure OIDC Plugin
+    }
+]
 
-introspection_url = f"https://{KEYCLOAK_HOST_IP}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect" \
-    if IS_PROD else f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect'
-discovery_url = f"https://{KEYCLOAK_HOST_IP}/auth/realms/{REALM_NAME}/.well-known/openid-configuration"\
-    if IS_PROD else f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/.well-known/openid-configuration'
+#def clean():
+response = requests.get(f'http://{KONG_HOST_IP}:{KONG_PORT}/routes')
+for _id in [e["id"] for e in response.json()["data"]]:
+    requests.delete(f'http://{KONG_HOST_IP}:{KONG_PORT}/routes/{_id}')
+response = requests.get(f'http://{KONG_HOST_IP}:{KONG_PORT}/services')
+for _id in [e["id"] for e in response.json()["data"]]:
+    requests.delete(f'http://{KONG_HOST_IP}:{KONG_PORT}/services/{_id}')
 
-print(introspection_url)
-print(discovery_url)
-data = {
-    'name': 'oidc',
-    'config.client_id': f'{CLIENT_ID}',
-    'config.client_secret': f'{CLIENT_SECRET}',
-    'config.realm': f'{REALM_NAME}',
-    'config.bearer_only': 'true',
-    'config.introspection_endpoint':introspection_url,
-    'config.discovery':discovery_url
-}
+from keycloak import KeycloakAdmin
 
-_ = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services/{created_service_id}/plugins', data=data)
+# Create kong client on Keycloak
+keycloak_admin = KeycloakAdmin(server_url=KEYCLOAK_URL,
+                               username=KEYCLOAK_ADMIN_USER,
+                                password=KEYCLOAK_ADMIN_PASSWORD,
+                               verify=True)
+
+CLIENT_KONG_KEYCLOAK_ID = str(uuid.uuid4())
+keycloak_admin.create_client({
+     "id":CLIENT_KONG_KEYCLOAK_ID,
+     "clientId":CLIENT_ID,
+     "name":CLIENT_ID,
+     "enabled": True,
+     "redirectUris":[ "/front/*", "/api/*", "/*", "*" ],
+})
+
+CLIENT_SECRET = keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID)["value"]
+
+introspection_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect'
+discovery_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/.well-known/openid-configuration'
+
+
+for service in services:
+    data = service
+
+    # Create Service
+    response = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services', data=data)
+    created_service_id = response.json()["id"]
+
+    # Create route
+    data = {
+        'service.id': f'{created_service_id}',
+        'paths[]': f'/{service["path"]}',
+    }
+
+    response = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services/{service["name"]}/routes', data=data)
+    # Configure OIDC
+    data = {
+        'name': 'oidc',
+        'config.client_id': f'{CLIENT_ID}',
+        'config.client_secret': f'{CLIENT_SECRET}',
+        'config.realm': f'{REALM_NAME}',
+        'config.bearer_only': 'true',
+        'config.introspection_endpoint': introspection_url,
+        'config.discovery': discovery_url
+    }
+
+    response = requests.post(f'http://{KONG_HOST_IP}:{KONG_PORT}/services/{created_service_id}/plugins', data=data)
