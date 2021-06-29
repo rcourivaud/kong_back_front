@@ -31,8 +31,6 @@ services:
     build: api
     networks:
       - default
-    ports:
-      - "5000:5000"
     volumes:
       - ./api/:/app
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000", "--reload"]
@@ -43,6 +41,8 @@ services:
         - authentication/.env
       networks:
         - default
+      ports:
+        - "25432:5432"
 
   keycloak:
       build:
@@ -54,12 +54,11 @@ services:
         - default
       ports:
       - "8080:8080"
+
   nginx:
     build:
       context: proxy
       dockerfile: Dockerfile
-    ports:
-      - "7777:7777"
     volumes:
       - ./front/dist/:/etc/nginx/html/dist/
       - ./proxy/data/nginx/:/etc/nginx/conf.d
