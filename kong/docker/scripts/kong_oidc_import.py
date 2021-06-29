@@ -1,6 +1,7 @@
 import requests
 import os
 import uuid
+from keycloak.exceptions import KeycloakGetError
 # from dotenv import load_dotenv
 # load_dotenv("../../.env")
 
@@ -28,7 +29,7 @@ services = [
     },
         {
         'name': "api_service",
-        'url': f'http://nginx:7777/api',
+        'url': f'http://api:5000/api',
         'path': "api"
 
     }
@@ -51,15 +52,20 @@ keycloak_admin = KeycloakAdmin(server_url=KEYCLOAK_URL,
                                verify=True)
 
 CLIENT_KONG_KEYCLOAK_ID = str(uuid.uuid4())
-keycloak_admin.create_client({
-     "id":CLIENT_KONG_KEYCLOAK_ID,
-     "clientId":CLIENT_ID,
-     "name":CLIENT_ID,
-     "enabled": True,
-     "redirectUris":[ "/front/*", "/api/*", "/*", "*" ],
-})
+try:
+    keycloak_admin.create_client({
+        "id":CLIENT_KONG_KEYCLOAK_ID,
+        "clientId":CLIENT_ID,
+        "name":CLIENT_ID,
+        "enabled": True,
+        "redirectUris":[ "/front/*", "/api/*", "/*", "*" ],
+    })
+    print(keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID))
+    CLIENT_SECRET = keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID)["value"]
 
-CLIENT_SECRET = keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID)["value"]
+except KeycloakGetError as e:
+    print("Keycloak Kong client already exists")
+    CLIENT_SECRET="1caf060c-f34c-4c2a-9f43-81659157b597"
 
 introspection_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect'
 discovery_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/.well-known/openid-configuration'
