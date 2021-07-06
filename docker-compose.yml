@@ -6,7 +6,7 @@ networks:
 volumes:
   kong-datastore:
   elasticsearch:
-    
+
 services:
   kong-db:
     image: postgres
@@ -65,6 +65,8 @@ services:
       - ./proxy/data/nginx/:/etc/nginx/conf.d
     networks:
       - default
+    ports:
+      - 7777:7777
 
 
   elasticsearch:
@@ -113,8 +115,6 @@ services:
       LS_JAVA_OPTS: "-Xmx256m -Xms256m"
     networks:
       - default
-    depends_on:
-      - elasticsearch
 
   kibana:
     build:

@@ -65,7 +65,7 @@ try:
 
 except KeycloakGetError as e:
     print("Keycloak Kong client already exists")
-    CLIENT_SECRET="1caf060c-f34c-4c2a-9f43-81659157b597"
+    CLIENT_SECRET="4d8d97a6-bec1-4f7f-85b3-be1407957ace"
 
 introspection_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect'
 discovery_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/.well-known/openid-configuration'
