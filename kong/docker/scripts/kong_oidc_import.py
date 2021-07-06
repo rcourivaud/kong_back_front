@@ -12,6 +12,7 @@ KEYCLOAK_PORT = os.environ.get("KEYCLOAK_PORT")
 KEYCLOAK_ADMIN_USER = os.environ.get("KEYCLOAK_ADMIN_USER")
 KEYCLOAK_ADMIN_PASSWORD = os.environ.get("KEYCLOAK_ADMIN_PASSWORD")
 IS_PROD = os.environ.get("PROD") == "true"
+KONG_CLIENT_NAME = os.environ.get("KONG_CLIENT_NAME")
 
 BACKEND_URI = os.environ.get("BACKEND_URI")
 CLIENT_ID = os.environ.get("CLIENT_ID")
@@ -51,21 +52,34 @@ keycloak_admin = KeycloakAdmin(server_url=KEYCLOAK_URL,
                                 password=KEYCLOAK_ADMIN_PASSWORD,
                                verify=True)
 
-CLIENT_KONG_KEYCLOAK_ID = str(uuid.uuid4())
-try:
-    keycloak_admin.create_client({
-        "id":CLIENT_KONG_KEYCLOAK_ID,
-        "clientId":CLIENT_ID,
-        "name":CLIENT_ID,
-        "enabled": True,
-        "redirectUris":[ "/front/*", "/api/*", "/*", "*" ],
-    })
-    print(keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID))
-    CLIENT_SECRET = keycloak_admin.get_client_secrets(CLIENT_KONG_KEYCLOAK_ID)["value"]
 
-except KeycloakGetError as e:
-    print("Keycloak Kong client already exists")
-    CLIENT_SECRET="4d8d97a6-bec1-4f7f-85b3-be1407957ace"
+def create_client_and_get_client_secret():
+    # Create kong client on Keycloak
+
+    keycloak_admin = KeycloakAdmin(server_url=KEYCLOAK_URL,
+                                username=KEYCLOAK_ADMIN_USER,
+                                    password=KEYCLOAK_ADMIN_PASSWORD,
+                                verify=True)
+
+    try:
+        keycloak_admin.create_client({
+            "clientId":CLIENT_NAME,
+            "name":CLIENT_NAME,
+            "enabled": True,
+            "redirectUris":[ "/front/*", "/api/*", "/*", "*" ],
+        })
+        
+        client_uuid = keycloak_admin.get_client_id(CLIENT_NAME)
+        keycloak_admin.generate_client_secrets(client_uuid)
+    except KeycloakGetError as e:
+        if e.response_code == 409: 
+            print("Keycloak Kong client already exists")
+            
+        client_uuid = keycloak_admin.get_client_id(CLIENT_NAME)
+
+    return  keycloak_admin.get_client_secrets(client_uuid)['value']
+
+CLIENT_SECRET = create_client_and_get_client_secret()
 
 introspection_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/protocol/openid-connect/token/introspect'
 discovery_url = f'http://{KEYCLOAK_HOST_IP}:{KEYCLOAK_PORT}/auth/realms/{REALM_NAME}/.well-known/openid-configuration'
